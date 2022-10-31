@@ -49,25 +49,6 @@
     (deftable winners:{winner})
     (deftable treasuries:{treasury})
 
-    (defun place-bet (account:string prediction:integer amount:decimal)
-        "Start the betting."
-        (with-capability (ACCOUNT-OWNER account)
-            (transferProtected account treasuryAccount amount)
-        )
-    )
-
-    (defun get-claim-amount:decimal (account:string)
-        "Get the claim amount by winner account"
-        ;; Read the row using the account as key and select only amountKDA column
-        (at 'amountKDA (read winners account ['amountKDA]))
-    )
-
-    (defun get-treasury:decimal (balanceType:string)
-        "Get the balance of coinflip treasury"
-        ;; Read the row using the balanceType as key and select only amountKDA column
-        (at 'amountKDA (read treasuries balanceType ['amountKDA]))
-    )
-
     (defun winner-exists:bool (account:string)
         "Check if the winner exists"
         ;; Read from winners table using `account` param value as key.
@@ -88,6 +69,55 @@
             {"amountKDA":= amountKDA}
             (>= amountKDA amount)
         )
+    )
+
+    (defun generateRandom:integer ()
+        (mod (at 'block-height (chain-data)) 2)
+    )
+
+    (defun addWinner (account:string amount:decimal)
+        (let ((exists (winner-exists account)))
+            (if (= exists true) 
+                (
+                  update winners account 
+                    {
+                        
+                    }
+                )
+                (insert winners account 
+                    { 
+                        "account": account 
+                        "amountKDA": amount
+                        "wonCount": 1
+                    }
+                )
+            )
+        )
+    )
+
+    (defun place-bet (account:string prediction:integer amount:decimal)
+        "Start the betting."
+        (with-capability (ACCOUNT-OWNER account)
+            (transferProtected account treasuryAccount amount)
+            (let ((randomiss (generateRandom)))
+                (if (= randomiss prediction)
+                    (addWinner account amount)       
+                )
+            )
+            
+        )
+    )
+
+    (defun get-claim-amount:decimal (account:string)
+        "Get the claim amount by winner account"
+        ;; Read the row using the account as key and select only amountKDA column
+        (at 'amountKDA (read winners account ['amountKDA]))
+    )
+
+    (defun get-treasury:decimal (balanceType:string)
+        "Get the balance of coinflip treasury"
+        ;; Read the row using the balanceType as key and select only amountKDA column
+        (at 'amountKDA (read treasuries balanceType ['amountKDA]))
     )
 
     (defun withdraw-winnings (account:string, amount:decimal)
