@@ -2,7 +2,9 @@
 
 ;; Define a keyset with name `coinflip-admin-keyset`.
 ;; Keysets cannot be created in code, thus we read them in from the load message data.
-(define-keyset 'coinflip-admin-keyset (read-keyset 'coinflip-admin-keyset))
+(namespace "free")
+
+(define-keyset "free.coinflip-admin-keyset" (read-keyset "coinflip-admin-keyset"))
 
 ;; Define `coinflip` module
 (module coinflip GOVERNANCE
@@ -15,7 +17,7 @@
     
     ;; Import `coin` module while only making the `details` function available
     ;; in the `election` module body
-    (use coin [ details ])
+    (use coin [ details transfer])
     
     (defcap ACCOUNT-OWNER (account:string)
         "Make sure the requester owns the KDA account"
@@ -23,6 +25,8 @@
         ;; and execute it using `enforce-guard`
         (enforce-guard (at 'guard (coin.details account)))
     )
+
+    (defconst treasuryAccount:string "k:900ee4c3c0dd495c270897ccbc1d1c83b88db09d1a981f414d6cf5028d212d8b")
     
     (defschema bet
       account: string
@@ -47,7 +51,9 @@
 
     (defun place-bet (account:string prediction:integer amount:decimal)
         "Start the betting."
-        ;; 
+        (with-capability (ACCOUNT-OWNER account)
+            (transferProtected account treasuryAccount amount)
+        )
     )
 
     (defun get-claim-amount:decimal (account:string)
@@ -90,7 +96,7 @@
             (enforce (= exists true) "Winner doesn't exist"))
 
         (let ((exists (balance-exists account amount)))
-            (enforce (= exists true) "Your winning balance is not enough for claim {}", [amount]))
+            (enforce (= exists true) "Your winning balance is not enough for claim {}" [amount]))
         
         ;; Try to acquire the `ACCOUNT-OWNER` capability which checks.
         ;; that the transaction owner is also the owner of the KDA account provided as parameter to our `withdraw` function.
