@@ -44,18 +44,6 @@
     (deftable bets:{bet})
     (deftable winners:{winner})
     (deftable treasuries:{treasury})
-    
-    (defun winner-exists:bool (account:string)
-        "Check if the winner exists"
-        ;; Read from winners table using `account` param value as key.
-        ;; with-default-read allows us to set default values for the table columns
-        ;; That are returned if the row does not exist.
-        (with-default-read winners account
-            {"wonCount":0}
-            {"wonCount":= wonCount}
-            (> wonCount 0)
-        )
-    )
 
     (defun place-bet (account:string prediction:integer amount:decimal)
         "Start the betting."
@@ -72,6 +60,47 @@
         "Get the balance of coinflip treasury"
         ;; Read the row using the balanceType as key and select only amountKDA column
         (at 'amountKDA (read treasuries balanceType ['amountKDA]))
+    )
+
+    (defun winner-exists:bool (account:string)
+        "Check if the winner exists"
+        ;; Read from winners table using `account` param value as key.
+        ;; with-default-read allows us to set default values for the table columns
+        ;; That are returned if the row does not exist.
+        (with-default-read winners account
+            {"wonCount":0}
+            {"wonCount":= wonCount}
+            (> wonCount 0)
+        )
+    )
+
+    (defun balance-exists:bool (account:string amount:decimal)
+        "Check if the winners balance exists"
+        ;; Read from winners table using `account` param value as key.
+        (with-default-read winners account
+            {"amountKDA":0}
+            {"amountKDA":= amountKDA}
+            (>= amountKDA amount)
+        )
+    )
+
+    (defun withdraw-winnings (account:string, amount:decimal)
+        "Withdraw the winning balance"
+        (let ((exists (winner-exists account)))
+            (enforce (= exists true) "Winner doesn't exist"))
+
+        (let ((exists (balance-exists account amount)))
+            (enforce (= exists true) "Your winning balance is not enough for claim {}", [amount]))
+        
+        ;; Try to acquire the `ACCOUNT-OWNER` capability which checks.
+        ;; that the transaction owner is also the owner of the KDA account provided as parameter to our `withdraw` function.
+        (with-capability (ACCOUNT-OWNER account)
+            (transferProtected treasuryAccount account amount)
+        )
+    )
+
+    (defun transferProtected (from:string to:string amount:decimal)
+        (coin.transfer from to amount)
     )
 
 )
