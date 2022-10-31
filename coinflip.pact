@@ -35,9 +35,15 @@
       amountKDA:decimal
       wonCount: integer
     )
+
+    (defschema treasury
+        balanceType:string
+        amountKDA:decimal
+    )
     
     (deftable bets:{bet})
     (deftable winners:{winner})
+    (deftable treasuries:{treasury})
     
     (defun winner-exists:bool (account:string)
         "Check if the winner exists"
@@ -50,4 +56,22 @@
             (> wonCount 0)
         )
     )
+
+    (defun place-bet (account:string prediction:integer amount:decimal)
+        "Start the betting."
+        ;; 
+    )
+
+    (defun get-claim-amount:decimal (account:string)
+        "Get the claim amount by winner account"
+        ;; Read the row using the account as key and select only amountKDA column
+        (at 'amountKDA (read winners account ['amountKDA]))
+    )
+
+    (defun get-treasury:decimal (balanceType:string)
+        "Get the balance of coinflip treasury"
+        ;; Read the row using the balanceType as key and select only amountKDA column
+        (at 'amountKDA (read treasuries balanceType ['amountKDA]))
+    )
+
 )
