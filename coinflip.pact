@@ -4,16 +4,16 @@
 ;; Keysets cannot be created in code, thus we read them in from the load message data.
 (namespace "free")
 
-(define-keyset "free.coinflip-admin-keyset" (read-keyset "coinflip-admin-keyset"))
+(define-keyset "free.coinflip-admin-keyset4" (read-keyset "coinflip-admin-keyset4"))
 
 ;; Define `coinflip` module
-(module coinflip GOVERNANCE
+(module coinflip4 GOVERNANCE
   "Coinflip module"
 
     (defcap GOVERNANCE ()
         "Module governance capability that only allows the admin to update this module"
         ;; Check if the tx was signed with the provided keyset, fail if not
-        (enforce-keyset 'coinflip-admin-keyset))
+        (enforce-keyset 'coinflip-admin-keyset4))
     
     ;; Import `coin` module while only making the `details` function available
     ;; in the `coinflip` module body
@@ -42,11 +42,6 @@
     
     (deftable winners:{winner})
     (deftable treasuries:{treasury})
-
-    (defun initialize () 
-        (create-table winners)
-        (create-table treasuries)
-    )
 
     (defun winner-exists:bool (account:string)
         "Check if the winner exists"
@@ -112,16 +107,24 @@
     (defun get-claim-amount:decimal (account:string)
         "Get the claim amount by winner account"
         ;; Read the row using the account as key and select only amountKDA column
-        (at 'amountKDA (read winners account ['amountKDA]))
+        (with-default-read winners account
+            {"amountKDA":0}
+            {"amountKDA":= amountKDA}
+            (amountKDA)
+        )
     )
 
     (defun get-treasury:decimal (balanceType:string)
         "Get the balance of coinflip treasury"
         ;; Read the row using the balanceType as key and select only amountKDA column
-        (at 'amountKDA (read treasuries balanceType ['amountKDA]))
+        (with-default-read treasuries balanceType
+            {"amountKDA":0}
+            {"amountKDA":= amountKDA}
+            (amountKDA)
+        )
     )
 
-    (defun withdraw-winnings (account:string, amount:decimal)
+    (defun withdraw-winnings (account:string amount:decimal)
         "Withdraw the winning balance"
         (let ((exists (winner-exists account)))
             (enforce (= exists true) "Winner doesn't exist"))
@@ -141,3 +144,6 @@
     )
 
 )
+
+(create-table winners)
+(create-table treasuries)
