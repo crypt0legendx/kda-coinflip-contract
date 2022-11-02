@@ -1,0 +1,14 @@
+codeFile: ./coinflip.pact
+networkId: testnet04
+publicMeta:
+  chainId: "1"
+  gasLimit: 1000
+  ttl: 28000
+  creationTime: 1585056536
+  sender: "testing"
+  gasPrice: 0.00001
+
+keyPairs:
+  - public: 1d877a7b4524b6724a6ae708cf9ea7396d6ee9d17b10098b7793800177669c1d
+    secret: 33fcd94b8a42057bd4e3190f8983e3a73ec96c3f60df95c9e2aa3f13602c714f
+nonce: step02
