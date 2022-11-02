@@ -26,6 +26,7 @@
         (enforce-guard (at 'guard (coin.details account)))
     )
 
+    (defconst siteFee:decimal 0.035)
     (defconst treasuryAccount:string "k:900ee4c3c0dd495c270897ccbc1d1c83b88db09d1a981f414d6cf5028d212d8b")
     
     (defschema bet
@@ -76,18 +77,22 @@
     )
 
     (defun addWinner (account:string amount:decimal)
-        (let ((exists (winner-exists account)))
+        
+        (let ((exists (winner-exists account))(winAmount (* (- amount (* amount siteFee)) 2)))
             (if (= exists true) 
                 (
-                  update winners account 
-                    {
-                        
-                    }
+                  with-read winners account {
+                    "wonCount" := wonCount, 
+                    "amountKDA" := amountKDA
+                   }
+                  ( update winners account {
+                        "wonCount": (+ wonCount 1),
+                        "amountKDA": (+ amountKDA winAmount)
+                  })
                 )
-                (insert winners account 
-                    { 
-                        "account": account 
-                        "amountKDA": amount
+                (insert winners account { 
+                        "account": account, 
+                        "amountKDA": winAmount,
                         "wonCount": 1
                     }
                 )
