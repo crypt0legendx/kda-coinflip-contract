@@ -16,8 +16,8 @@
         (enforce-keyset 'coinflip-admin-keyset))
     
     ;; Import `coin` module while only making the `details` function available
-    ;; in the `election` module body
-    (use coin [ details transfer])
+    ;; in the `coinflip` module body
+    (use coin)
     
     (defcap ACCOUNT-OWNER (account:string)
         "Make sure the requester owns the KDA account"
@@ -30,15 +30,15 @@
     (defconst treasuryAccount:string "k:900ee4c3c0dd495c270897ccbc1d1c83b88db09d1a981f414d6cf5028d212d8b")
     
     (defschema bet
-      account: string
-      amountKDA: decimal
+      account:string
+      amountKDA:decimal
       prediction:integer
     )
     
     (defschema winner
       account:string
       amountKDA:decimal
-      wonCount: integer
+      wonCount:integer
     )
 
     (defschema treasury
@@ -80,20 +80,18 @@
         
         (let ((exists (winner-exists account))(winAmount (* (- amount (* amount siteFee)) 2)))
             (if (= exists true) 
-                (
-                  with-read winners account {
-                    "wonCount" := wonCount, 
-                    "amountKDA" := amountKDA
+                (with-read winners account {
+                    "wonCount":= wonCount,
+                    "amountKDA":= amountKDA
                    }
                   ( update winners account {
-                        "wonCount": (+ wonCount 1),
-                        "amountKDA": (+ amountKDA winAmount)
-                  })
-                )
+                        "wonCount":(+ wonCount 1),
+                        "amountKDA":(+ amountKDA winAmount)
+                  }))
                 (insert winners account { 
-                        "account": account, 
-                        "amountKDA": winAmount,
-                        "wonCount": 1
+                        "account":account, 
+                        "amountKDA":winAmount,
+                        "wonCount":1
                     }
                 )
             )
