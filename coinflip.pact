@@ -29,12 +29,6 @@
     (defconst siteFee:decimal 0.035)
     (defconst treasuryAccount:string "k:900ee4c3c0dd495c270897ccbc1d1c83b88db09d1a981f414d6cf5028d212d8b")
     
-    (defschema bet
-      account:string
-      amountKDA:decimal
-      prediction:integer
-    )
-    
     (defschema winner
       account:string
       amountKDA:decimal
@@ -46,9 +40,13 @@
         amountKDA:decimal
     )
     
-    (deftable bets:{bet})
     (deftable winners:{winner})
     (deftable treasuries:{treasury})
+
+    (defun initialize () 
+        (create-table winners)
+        (create-table treasuries)
+    )
 
     (defun winner-exists:bool (account:string)
         "Check if the winner exists"
