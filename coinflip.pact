@@ -1,19 +1,13 @@
-;; coinflip.pact
 
-;; Define a keyset with name `coinflip-admin-keyset`.
-;; Keysets cannot be created in code, thus we read them in from the load message data.
+
 (namespace "free")
 
-(define-keyset "free.coinflip-admin-keyset4" (read-keyset "coinflip-admin-keyset4"))
+(define-keyset "free.coinflip-admin-keyset10" (read-keyset "coinflip-admin-keyset10"))
 
-;; Define `coinflip` module
-(module coinflip4 GOVERNANCE
+(module coinflip10 MODULE_ADMIN
   "Coinflip module"
 
-    (defcap GOVERNANCE ()
-        "Module governance capability that only allows the admin to update this module"
-        ;; Check if the tx was signed with the provided keyset, fail if not
-        (enforce-keyset 'coinflip-admin-keyset4))
+    (defcap MODULE_ADMIN () true)
     
     ;; Import `coin` module while only making the `details` function available
     ;; in the `coinflip` module body
@@ -27,7 +21,14 @@
     )
 
     (defconst siteFee:decimal 0.035)
-    (defconst treasuryAccount:string "k:900ee4c3c0dd495c270897ccbc1d1c83b88db09d1a981f414d6cf5028d212d8b")
+    (defconst TREASURY-BANK:string (create-principal (treasury-bank-guard)))
+
+    (defun treasury-bank-guard:guard ()
+        (create-module-guard "treasury"))
+
+    (defun get-bank ()
+          TREASURY-BANK)
+
     
     (defschema winner
       account:string
@@ -69,38 +70,33 @@
         (mod (at 'block-height (chain-data)) 2)
     )
 
-    (defun addWinner (account:string amount:decimal)
-        
-        (let ((exists (winner-exists account))(winAmount (* (- amount (* amount siteFee)) 2)))
-            (if (= exists true) 
-                (with-read winners account {
-                    "wonCount":= wonCount,
-                    "amountKDA":= amountKDA
-                   }
-                  ( update winners account {
-                        "wonCount":(+ wonCount 1),
-                        "amountKDA":(+ amountKDA winAmount)
-                  }))
-                (insert winners account { 
-                        "account":account, 
-                        "amountKDA":winAmount,
-                        "wonCount":1
-                    }
-                )
-            )
-        )
-    )
-
+    
     (defun place-bet (account:string prediction:integer amount:decimal)
         "Start the betting."
-        (with-capability (ACCOUNT-OWNER account)
-            (transferProtected account treasuryAccount amount)
-            (let ((randomiss (generateRandom)))
-                (if (= randomiss prediction)
-                    (addWinner account amount)       
+        (install-capability  (coin.transfer account TREASURY-BANK amount))
+        (with-capability (coin.transfer account TREASURY-BANK amount)
+            (coin.transfer account TREASURY-BANK amount))
+        (let ((randomiss (generateRandom)))
+            (if (= randomiss prediction)
+                (let ((exists (winner-exists account))(winAmount (* (- amount (* amount siteFee)) 2)))
+                    (if (= exists true) 
+                        (with-read winners account {
+                            "wonCount":= wonCount,
+                            "amountKDA":= amountKDA
+                           }
+                          ( update winners account {
+                                "wonCount":(+ wonCount 1),
+                                "amountKDA":(+ amountKDA winAmount)
+                          }))
+                        (insert winners account { 
+                                "account":account, 
+                                "amountKDA":winAmount,
+                                "wonCount":1
+                            }
+                        )
+                    )
                 )
             )
-            
         )
     )
 
@@ -132,18 +128,24 @@
         (let ((exists (balance-exists account amount)))
             (enforce (= exists true) "Your winning balance is not enough for claim {}" [amount]))
         
-        ;; Try to acquire the `ACCOUNT-OWNER` capability which checks.
-        ;; that the transaction owner is also the owner of the KDA account provided as parameter to our `withdraw` function.
-        (with-capability (ACCOUNT-OWNER account)
-            (transferProtected treasuryAccount account amount)
+        (install-capability  (coin.transfer TREASURY-BANK account amount))
+        (with-capability (coin.transfer TREASURY-BANK account amount)
+            (coin.transfer TREASURY-BANK account amount))
+
+        (with-read winners account {
+            "amountKDA":= amountKDA
+           }
+          ( update winners account {
+                "amountKDA":(- amountKDA amount)
+          }))
+        
+    )
+
+    (defun intilialize()
+        (with-capability (MODULE_ADMIN)
+            (coin.create-account TREASURY-BANK (treasury-bank-guard))
+            "Bank accounts have been created"
         )
     )
-
-    (defun transferProtected (from:string to:string amount:decimal)
-        (coin.transfer from to amount)
-    )
-
 )
 
-(create-table winners)
-(create-table treasuries)
