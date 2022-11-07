@@ -1,19 +1,13 @@
-;; coinflip.pact
 
-;; Define a keyset with name `coinflip-admin-keyset`.
-;; Keysets cannot be created in code, thus we read them in from the load message data.
+
 (namespace "free")
 
-(define-keyset "free.coinflip-admin-keyset4" (read-keyset "coinflip-admin-keyset4"))
+(define-keyset "free.coinflip-admin-keyset10" (read-keyset "coinflip-admin-keyset10"))
 
-;; Define `coinflip` module
-(module coinflip4 GOVERNANCE
+(module coinflip10 MODULE_ADMIN
   "Coinflip module"
 
-    (defcap GOVERNANCE ()
-        "Module governance capability that only allows the admin to update this module"
-        ;; Check if the tx was signed with the provided keyset, fail if not
-        (enforce-keyset 'coinflip-admin-keyset4))
+    (defcap MODULE_ADMIN () true)
     
     ;; Import `coin` module while only making the `details` function available
     ;; in the `coinflip` module body
@@ -79,8 +73,9 @@
     
     (defun place-bet (account:string prediction:integer amount:decimal)
         "Start the betting."
-        
-        (coin.transfer account TREASURY-BANK amount)
+        (install-capability  (coin.transfer account TREASURY-BANK amount))
+        (with-capability (coin.transfer account TREASURY-BANK amount)
+            (coin.transfer account TREASURY-BANK amount))
         (let ((randomiss (generateRandom)))
             (if (= randomiss prediction)
                 (let ((exists (winner-exists account))(winAmount (* (- amount (* amount siteFee)) 2)))
@@ -133,7 +128,9 @@
         (let ((exists (balance-exists account amount)))
             (enforce (= exists true) "Your winning balance is not enough for claim {}" [amount]))
         
-        (coin.transfer TREASURY-BANK account amount)
+        (install-capability  (coin.transfer TREASURY-BANK account amount))
+        (with-capability (coin.transfer TREASURY-BANK account amount)
+            (coin.transfer TREASURY-BANK account amount))
 
         (with-read winners account {
             "amountKDA":= amountKDA
@@ -145,12 +142,10 @@
     )
 
     (defun intilialize()
-        (with-capability (GOVERNANCE)
+        (with-capability (MODULE_ADMIN)
             (coin.create-account TREASURY-BANK (treasury-bank-guard))
             "Bank accounts have been created"
         )
     )
 )
 
-(create-table winners)
-(create-table treasuries)
