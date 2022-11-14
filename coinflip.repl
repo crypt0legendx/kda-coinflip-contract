@@ -1,0 +1,257 @@
+(load "kda-env/init.repl")
+
+(begin-tx)
+
+(env-keys ["gov", "ops"])
+(env-data 
+  { 
+    "gov": { "keys": ["gov"], "pred": "keys-all"},
+    "ops": { "keys": ["ops"], "pred": "keys-all"},
+    "init": true
+  })
+
+(load "coinflip.pact")
+
+(commit-tx)
+
+
+
+(begin-tx "Values are correct")
+(use free.coinflip)
+
+(expect-that "Chance to win"
+  (= 2)
+  (get-int-value WIN_CHANCE_KEY)
+)
+(expect-that "Chance to win"
+  (= 1)
+  (mod 1 (get-int-value WIN_CHANCE_KEY))
+)
+(expect-that "Chance to win"
+  (= true)
+  (= (mod 1 (get-int-value WIN_CHANCE_KEY)) 1)
+)
+(commit-tx)
+
+
+
+(begin-tx "Bets and Claim")
+(use free.coinflip)
+
+(env-keys ["alice-key"])
+(env-sigs [
+  {
+    "key": "alice-key",
+    "caps": [
+      (coin.TRANSFER "alice" TREASURY_BANK 200.0)
+    ]
+  }
+])
+(expect-failure "Can't place bet without ops"
+  "Keyset failure (keys-all): [ops]"
+  (place-bet "alice" 1 1 100.0)
+)
+
+(env-keys ["alice-key", "ops"])
+(env-sigs [
+  {
+    "key": "alice-key",
+    "caps": [
+      (coin.TRANSFER "alice" TREASURY_BANK 200.0)
+    ]
+  },
+  {
+    "key": "ops",
+    "caps": [
+      (OPS)
+    ]
+  }
+])
+(expect-that "Can place bet with OPS"
+  (= "Write succeeded")
+  (place-bet "alice" 1 1 100.0)
+)
+(expect-that "Can claim"
+  (= (* (- 100.0 (* 100.0 (get-decimal-value SITE_FEE_KEY))) 2))
+  (get-claim-amount "alice")
+)
+(expect-that "Can place bet with OPS"
+  (= "Lost bet")
+  (place-bet "alice" 1 2 100.0)
+)
+(expect-that "Can claim"
+  (= (* (- 100.0 (* 100.0 (get-decimal-value SITE_FEE_KEY))) 2))
+  (get-claim-amount "alice")
+)
+
+(commit-tx)
+
+
+
+(begin-tx "Claim")
+(use free.coinflip)
+
+(env-keys ["bob-key"])
+(env-sigs [
+  {
+    "key": "bob-key",
+    "caps": [
+      (WINNER "alice" 50.0)
+    ]
+  }
+])
+(expect-failure "Can't withdraw from someone else"
+  "Keyset failure (keys-all): [alice"
+  (withdraw-winnings "alice" 50.0)
+)
+(env-sigs [
+  {
+    "key": "bob-key",
+    "caps": [
+      (WINNER "bob" 100.0)
+    ]
+  }
+])
+(expect-failure "Can't withdraw if you haven't won"
+  "You haven't won yet"
+  (withdraw-winnings "bob" 100.0)
+)
+
+(env-keys ["alice-key"])
+(env-sigs [
+  {
+    "key": "alice-key",
+    "caps": [
+      (WINNER "alice" (get-claim-amount "alice"))
+    ]
+  }
+])
+(get-claim-amount "alice")
+(expect-that "Can withdraw up to won amount"
+  (= "Write succeeded")
+  (withdraw-winnings "alice" (get-claim-amount "alice"))
+)
+
+(commit-tx)
+
+
+
+(begin-tx "Claim Fail")
+(use free.coinflip)
+
+(env-keys ["alice-key"])
+(env-sigs [
+  {
+    "key": "alice-key",
+    "caps": [
+      (WINNER "alice" 100.0)
+    ]
+  }
+])
+(expect-failure "Can't withdraw more than winnings"
+  "Your winning balance is not enough for claim 100.0"
+  (withdraw-winnings "alice" 100.0)
+)
+
+(commit-tx)
+
+
+
+(begin-tx "Bank and Withdraw")
+(use free.coinflip)
+
+(env-keys ["ops"])
+(env-sigs [
+  {
+    "key": "ops",
+    "caps": [
+      (OPS)
+    ]
+  }
+])
+(expect-that "Can withdraw"
+  (= "Write succeeded")
+  (withdraw-from-bank "alice" 7.0)
+)
+
+(commit-tx)
+
+
+
+(begin-tx "Permissions")
+(use free.coinflip)
+
+(env-keys ["bob"])
+(env-sigs [
+  {
+    "key": "bob",
+    "caps": [
+      (OPS)
+    ]
+  }
+])
+(expect-failure "Can't withdraw"
+  "Keyset failure (keys-all): [ops]"
+  (withdraw-from-bank "bob" 7.0)
+)
+
+(commit-tx)
+
+
+
+(begin-tx "Gov and Ops guard rotation")
+(use free.coinflip)
+
+(env-keys ["gov"])
+(env-sigs [{ "key": "gov", "caps": [(GOV)]}])
+(env-data 
+  { 
+    "gov2": { "keys": ["gov2"], "pred": "="}
+  })
+(expect-that "Rotating gov works"
+  (= "Rotated GOV to a new guard")
+  (rotate-gov (read-keyset "gov2"))
+)
+(expect-failure "Setting value with old keyset doesn't work"
+  "Tx Failed: Keyset failure (=): [gov2]"
+  (rotate-gov (read-keyset "gov2"))
+)
+
+(env-keys ["gov2"])
+(env-sigs [{ "key": "gov2", "caps": [(GOV)]}])
+(env-data 
+  { 
+    "gov": { "keys": ["gov"], "pred": "="}
+  })
+(expect-that "Rotating gov works"
+  (= "Rotated GOV to a new guard")
+  (rotate-gov (read-keyset "gov"))
+)
+
+(env-keys ["ops"])
+(env-sigs [{ "key": "ops", "caps": [(OPS)]}])
+(env-data 
+  { 
+    "ops2": { "keys": ["ops2"], "pred": "="}
+  })
+(expect-that "Rotating ops works"
+  (= "Rotated OPS to a new guard")
+  (rotate-ops (read-keyset "ops2"))
+)
+(expect-failure "Setting value with old keyset doesn't work"
+  "Tx Failed: Keyset failure (=): [ops2]"
+  (rotate-ops (read-keyset "ops2"))
+)
+
+(env-keys ["ops2"])
+(env-sigs [{ "key": "ops2", "caps": [(OPS)]}])
+(env-data 
+  { 
+    "ops": { "keys": ["ops"], "pred": "="}
+  })
+(expect-that "Rotating ops works"
+  (= "Rotated OPS to a new guard")
+  (rotate-ops (read-keyset "ops"))
+)
+
+(commit-tx)
