@@ -258,11 +258,19 @@
   )
 
   (defun withdraw-from-bank:string (receiver:string amount:decimal)
-    @doc "Ops function that enables bonded NFT managers to withdraw from a pool's bank. \
+    @doc "Ops function that enables coinflip managers to withdraw from a treasury's bank. \
     \ Expects that the receiver exists."
     (with-capability (OPS)
       (install-capability (coin.TRANSFER TREASURY_BANK receiver amount))
       (coin.transfer TREASURY_BANK receiver amount)
+    )
+  )
+
+  (defun deposit-to-bank:string (account:string amount:decimal)
+    @doc "Ops function that enables coinflip managers to deposit to treasury's bank."
+    (with-capability (OPS)
+      (install-capability (coin.TRANSFER account TREASURY_BANK amount))
+      (coin.transfer account TREASURY_BANK amount)
     )
   )
 
