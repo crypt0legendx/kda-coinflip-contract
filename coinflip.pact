@@ -288,8 +288,7 @@
   [
     (create-table m-guards)
     (create-table decimal-values)
-    (create-table int-values)
-    (create-table treasuries)
+    (create-table int-values)    
     (create-table winners)
     (init-perms (read-keyset "gov") (read-keyset "ops"))
     (update-decimal-value SITE_FEE_KEY 0.035)    
