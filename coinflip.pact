@@ -121,72 +121,58 @@
   ;; Constants
 
   (defconst SITE_FEE_KEY:string "SITE_FEE")
-  (defconst WIN_CHANCE_KEY:string "WIN_CHANCE")
-
+  (defconst WIN_CHANCE_KEY:string "WIN_CHANCE")  
     
   (defschema winner
     account:string
     amountKDA:decimal
     wonCount:integer
+  )  
+  
+  (deftable winners:{winner})  
+  
+  (defun generateRandom:integer ()
+      (mod (at 'block-height (chain-data)) 2)
   )
 
-  (defschema treasury
-    balanceType:string
-    amountKDA:decimal
-  )
-  
-  (deftable winners:{winner})
-  (deftable treasuries:{treasury})
-
-  
-  (defun place-bet:string (account:string prediction:integer rand:integer amount:decimal)
+  (defun place-bet:string (account:string prediction:integer amount:decimal)
     @doc "Start the betting."
-    (with-capability (OPS)
-      (coin.transfer account TREASURY_BANK amount)
-
-      (if (= (mod rand (get-int-value WIN_CHANCE_KEY)) prediction)
-        (let 
-          (
-            (exists (winner-exists account))
-            (winAmount (* (- amount (* amount (get-decimal-value SITE_FEE_KEY))) 2))
-          )
-          (if exists 
-            (with-read winners account {
-                "wonCount":= wonCount,
-                "amountKDA":= amountKDA
-              }
-              (update winners account {
-                "wonCount":(+ wonCount 1),
-                "amountKDA":(+ amountKDA winAmount)
-              })
+    
+      (coin.transfer account TREASURY_BANK amount)      
+      (let ((randomiss (generateRandom)))
+        (if (= randomiss prediction)
+          (let 
+            (
+              (exists (winner-exists account))
+              (winAmount (* (- amount (* amount (get-decimal-value SITE_FEE_KEY))) 2))
             )
-            (insert winners account { 
-                "account":account, 
-                "amountKDA":winAmount,
-                "wonCount":1
-              }
+            (if exists 
+              (with-read winners account {
+                  "wonCount":= wonCount,
+                  "amountKDA":= amountKDA
+                }
+                (update winners account {
+                  "wonCount":(+ wonCount 1),
+                  "amountKDA":(+ amountKDA winAmount)
+                })
+              )
+              (insert winners account { 
+                  "account":account, 
+                  "amountKDA":winAmount,
+                  "wonCount":1
+                }
+              )
             )
           )
+          "Lost bet"
         )
-        "Lost bet"
-      )
-    )
+      )    
   )
 
   (defun get-claim-amount:decimal (account:string)
     @doc "Get the claim amount by winner account"
     ;; Read the row using the account as key and select only amountKDA column
     (with-default-read winners account
-      {"amountKDA":0}
-      {"amountKDA":= amountKDA}
-      amountKDA
-    )
-  )
-
-  (defun get-treasury:decimal (balanceType:string)
-    @doc "Get the balance of coinflip treasury"
-    ;; Read the row using the balanceType as key and select only amountKDA column
-    (with-default-read treasuries balanceType
       {"amountKDA":0}
       {"amountKDA":= amountKDA}
       amountKDA
@@ -298,7 +284,7 @@
     (create-table treasuries)
     (create-table winners)
     (init-perms (read-keyset "gov") (read-keyset "ops"))
-    (update-decimal-value SITE_FEE_KEY 0.035)
+    (update-decimal-value SITE_FEE_KEY 0.035)    
     (update-int-value WIN_CHANCE_KEY 2)
     (intilialize)
   ]
