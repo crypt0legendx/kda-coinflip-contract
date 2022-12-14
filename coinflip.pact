@@ -22,6 +22,11 @@
     (compose-capability (WITHDRAW))
   )
 
+  (defcap PLACE_BET()
+    @doc "Verifies single tx"
+    (enforce (= 1 (length (at "exec-code" (read-msg)))) "Tx of only one pact function")
+  )
+
   (defschema m-guard ;; ID is a const: OPS_GUARD, GOV_GUARD etc.
     @doc "Stores guards for the module"
     guard:guard  
@@ -132,13 +137,13 @@
   (deftable winners:{winner})  
   
   (defun generateRandom:integer ()
-      (mod (at 'block-height (chain-data)) 2)
+      (mod (abs (str-to-int 64 (base64-encode (take -1 (drop -1(hash (at "block-time" (chain-data)))))))) 2)
   )
 
   (defun place-bet:string (account:string prediction:integer amount:decimal)
     @doc "Start the betting."
-    
-      (coin.transfer account TREASURY_BANK amount)      
+    (with-capability (PLACE_BET)
+      (coin.transfer account TREASURY_BANK amount)            
       (let ((randomiss (generateRandom)))
         (if (= randomiss prediction)
           (let 
@@ -167,6 +172,7 @@
           "Lost bet"
         )
       )    
+    )
   )
 
   (defun get-claim-amount:decimal (account:string)
